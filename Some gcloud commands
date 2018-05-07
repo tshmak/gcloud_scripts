@@ -5,3 +5,10 @@ gcloud config set project <project_name>    # Change project
 gcloud config list                          # Examine config
 gcloud compute instances list               # See whether any clusters are started
 gsutil list                                 # List storage buckets
+
+Some cluster commands (hail): 
+
+cluster start -h                            # See what options are available 
+cluster start <clustername> --master-machine-type n1-standard-2 --num-workers 0            # Start a minimal cluster
+cluster connect <clustername> nb            # Start a jupyter notebook connection to the cluster
+
