@@ -5,6 +5,7 @@ gcloud config set project <project_name>    # Change project
 gcloud config list                          # Examine config
 gcloud compute instances list               # See whether any clusters are started
 gsutil list                                 # List storage buckets
+gcloud compute ssh <clustername-m>          # ssh into master node of clustername
 
 Some cluster commands (hail): 
 
