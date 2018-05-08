@@ -28,7 +28,7 @@ pcas = pcas.drop('IID')
 vds = vds.annotate_cols(**pcas[vds.s])
 vds.describe()
 pprint(vds.aggregate_cols(agg.stats(vds.f1)))
-vds = hl.sample_qc(vds)
+# vds = hl.sample_qc(vds)
 vds.select_cols('f1')
 gwas = hl.linear_regression(y=vds.f1, x=vds.GT.n_alt_alleles(),
     covariates=[vds['pc'+str(i)] for i in range(1, 12)])
