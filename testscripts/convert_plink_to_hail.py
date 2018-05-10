@@ -2,6 +2,8 @@
 
 import hail as hl
 
+print("This only is adviced for Hail 0.1")
+
 path = 'gs://ukb_testdata/maf_0.01_10'
 
 hc = hl.HailContext()
