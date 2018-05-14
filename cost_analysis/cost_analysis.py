@@ -31,7 +31,6 @@ class CloudCost(object):
             'SELECT * from %s' % self.database
         )
         query_job = self.bigquery_client.query(query, location=self.location)
-        rows = list(query_job.result(timeout=30))
 
         out = []
         for row in query_job:
