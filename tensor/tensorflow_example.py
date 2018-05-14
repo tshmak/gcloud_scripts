@@ -23,7 +23,7 @@ def _get_matrix(pfile, max_block):
         return genotypemat
 
 
-def linear_regression(pfile, num_snps=100, learning_rate=0.1, epoch=100):
+def linear_regression(pfile, num_snps=100, learning_rate=0.01, epoch=100, l=1.0):
     """Run a Simple linear regression with tensorflow."""
     # data
     genotypematrix = _get_matrix(pfile, num_snps)
@@ -39,7 +39,7 @@ def linear_regression(pfile, num_snps=100, learning_rate=0.1, epoch=100):
     W = tf.Variable(tf.ones([p, 1]))
     init = tf.global_variables_initializer()
     y_ = tf.matmul(x, W)
-    cost = tf.reduce_mean(tf.square(y_-y))
+    cost = tf.reduce_mean(tf.square(y_-y)) + l*tf.reduce_sum(tf.abs(W))
     train_op = tf.train.GradientDescentOptimizer(learning_rate).minimize(cost)
     feed_dict = {x: genotypematrix, y: pheno}
 
