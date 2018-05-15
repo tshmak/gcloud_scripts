@@ -1,6 +1,11 @@
 import numpy as np
 import tensorflow as tf
 from pyplink import PyPlink
+import sys
+import os
+import urllib.request
+import tarfile
+import zipfile
 
 print("Tensorflow version : {}".format(tf.VERSION))
 
@@ -21,6 +26,40 @@ def _get_matrix(pfile, max_block):
             if u >= max_block:
                 break
         return genotypemat
+
+
+def _print_download_progress(count, block_size, total_size):
+    """Use for monitoring downloading process."""
+    pct_complete = float(count * block_size) / total_size
+    msg = "\r- Download progress: {0:.1%}".format(pct_complete)
+    sys.stdout.write(msg)
+    sys.stdout.flush()
+
+
+def download_data(url, download_dir):
+    """Download data from url."""
+    filename = url.split('/')[-1]
+    file_path = os.path.join(download_dir, filename)
+
+    if not os.path.exists(file_path):
+        if not os.path.exists(download_dir):
+            os.makedirs(download_dir)
+
+        file_path, _ = urllib.request.urlretrieve(url=url,
+                                                  filename=file_path,
+                                                  reporthook=_print_download_progress)
+
+        print()
+        print("Download finished. Extracting files.")
+
+        if file_path.endswith(".zip"):
+            zipfile.ZipFile(file=file_path, mode="r").extractall(download_dir)
+        elif file_path.endswith((".tar.gz", ".tgz")):
+            tarfile.open(name=file_path, mode="r:gz").extractall(download_dir)
+
+        print("Done.")
+    else:
+        print("Data has apparently already been downloaded and unpacked.")
 
 
 def linear_regression(pfile, num_snps=100, learning_rate=0.01, epoch=100, l=1.0):
@@ -56,5 +95,7 @@ def linear_regression(pfile, num_snps=100, learning_rate=0.01, epoch=100, l=1.0)
 
 
 if __name__ == '__main__':
-    pfile = 'data/subset_10k'
+    url = "ftp://climb.genomics.cn/pub/10.5524/100001_101000/100116/1kg_phase1_chr22.tar.gz"
+    download_data(url, 'data')
+    pfile = 'data/1kg_phase1_chr22'
     linear_regression(pfile)
