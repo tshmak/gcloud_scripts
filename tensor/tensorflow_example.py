@@ -49,7 +49,6 @@ def download_data(url, download_dir):
                                                   filename=file_path,
                                                   reporthook=_print_download_progress)
 
-        print()
         print("Download finished. Extracting files.")
 
         if file_path.endswith(".zip"):
