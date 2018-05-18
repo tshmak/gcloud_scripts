@@ -40,10 +40,19 @@
   \end{figure}
   \begin{itemize}
     \item Spark splits the input data-set into independent chunks
-    \item Chunks are processed by the map tasks in a completely parallel manner.
+    \item Chunks are processed by the workers in a completely parallel manner.
     \item This is also called MapReduce
   \end{itemize}
 \end{frame}
+
+\begin{frame}[t]{Map Reduce}
+  \begin{figure}
+    \centering
+    \includegraphics[scale=0.35]{figure/map_reduce.png}
+  \end{figure}
+ Spark retains the general idea of MapReduce from Hadoop, just not the implementation 
+\end{frame}
+
 \begin{frame}{Spark and MapReduce}
   Aim of Spark: \emph{generalize} MapReduce
   \begin{itemize}
@@ -56,17 +65,32 @@
   \end{itemize}
 \end{frame}
 
+\begin{frame}[t]{General Spark Framework}
+  \begin{figure}
+    \centering
+    \includegraphics[scale=0.35]{figure/spark_rdd.png}
+  \end{figure}
+  RDD: Resilient Distributed Dataset
+\end{frame}
+
+\begin{frame}[t]{Spark Technology Stack}
+  \begin{figure}
+    \centering
+    \includegraphics[scale=0.9]{figure/spark_stack.png}
+  \end{figure}
+\end{frame}
+
 \begin{frame}{Application in genetics}
   Distribution of data across multiple nodes for processing by:
   \begin{itemize}
-    \item position (GWAS, Burden-Tests, etc.)
-    \item sample (FASTq, etc.)
+    \item Position 
+    \item Sample 
   \end{itemize}
   The difference between Spark and our current approach is \textbf{scalability} and \textbf{automation}!
   \begin{itemize}
-    \item MapReduce can scale to $X$ number of clusters automatically
-    \item data is dynamically chucked off and distributed
-    \item results are automatically feed back
+    \item Can scale to $X$ number of clusters automatically
+    \item Data is dynamically chucked off and distributed
+    \item Results are automatically feed back
   \end{itemize}
 \end{frame}
 
