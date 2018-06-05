@@ -7,5 +7,6 @@ cluster start testcluster \
   --num-preemptible-workers 2 \
   --version devel \
   --spark 2.2.0 \
-  --zone asia-east1-a
-
+  --zone asia-east1-a \
+  --pkgs scikit-learn \
+  --init gs://ukb_testdata/additional_init.sh
