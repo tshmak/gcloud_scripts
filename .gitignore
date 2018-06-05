@@ -1,0 +1,13 @@
+/tensor/data/*
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.nav
+*.out
+*.snm
+*.synctex.gz
+*.toc
+*.pyc
+*.DS_Store
+tensor/notebooks/*.ipynb_checkpoints
