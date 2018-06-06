@@ -5,6 +5,7 @@ import os
 from google.cloud import storage
 import pickle
 import numpy as np
+import cProfile
 
 
 class genetic_testdata(object):
@@ -119,21 +120,25 @@ class Genetic_data_read(object):
 
     def block_iter(self, chr=22):
         """Block iteration."""
+        assert chr in self.chromosoms
         current_block = 0
-        processed_block = False
-        size_block = len(self.groups[chr][0])
+        block_ids = self.groups[chr][current_block]
+        size_block = len(block_ids)
         genotypematrix = np.zeros((self.n, size_block))
+        pos_id = 0
         for snp, genotypes in self.plink_reader.iter_geno():
-            block_id, pos_id, size_block = self._get_block(snp, chr)
-            if block_id is None:
+            if snp not in block_ids:
                 continue
-            if block_id > current_block:
-                if block_id >= 0 and processed_block:
+            else:
+                genotypematrix[:, pos_id] = genotypes
+                pos_id += 1
+                if pos_id >= (size_block - 1):
                     yield genotypematrix
-                current_block = block_id
-                genotypematrix = np.zeros((self.n, size_block))
-                processed_block = True
-            genotypematrix[:, pos_id] = genotypes
+                    pos_id = 0
+                    current_block += 1
+                    block_ids = self.groups[chr][current_block]
+                    size_block = len(block_ids)
+                    genotypematrix = np.zeros((self.n, size_block))
 
 
 if __name__ == '__main__':
@@ -144,9 +149,3 @@ if __name__ == '__main__':
 
     genetic_process = Genetic_data_read(plink_stem, ld_blocks)
     out = genetic_process.block_iter()
-    hh = next(out)
-    print(np.sum(hh, axis=1))
-    hh = next(out)
-    print(np.sum(hh, axis=1))
-    hh = next(out)
-    print(np.sum(hh, axis=1))
