@@ -122,7 +122,7 @@ class L12Linear(_L12Norm):
 class pytorch_linear(object):
     """Penalized regresssion with L1/L2/L0 norm."""
 
-    def __init__(self, X, y, model_log, overwrite=False):
+    def __init__(self, X, y, model_log, overwrite=False, type='b'):
         """Penalized regression."""
         super(pytorch_linear, self).__init__()
         self.model_log = model_log
@@ -131,6 +131,7 @@ class pytorch_linear(object):
         self.y = y.reshape(len(y), 1)
         self.input_dim = X.shape[1]
         self.output_dim = 1
+        self.type = type
         print(self.input_dim, self.output_dim)
         if not os.path.isfile(model_log):
             with open(model_log, 'w', encoding='utf-8') as f:
@@ -140,10 +141,7 @@ class pytorch_linear(object):
                 pickle.dump([], f)
         assert os.path.isfile(self.model_log)
 
-    def run(self, penal='l1', **kwargs):
-        """Run regression with the given paramters."""
-        epochs = 601
-        l_rate = 0.01
+    def _model_builder(self, penal, **kwargs):
         if penal == 'l1':
             model = L12Linear(self.input_dim, self.output_dim, penal=penal)
         elif penal == 'l2':
@@ -153,20 +151,49 @@ class pytorch_linear(object):
         else:
             raise ValueError('incorrect norm specified')
 
+        return model
+
+    def _loss_function(self, labels, outputs):
+        if self.type == 'c':
+            loss = ((labels - outputs)**2).mean()
+        elif self.type == 'b':
+            loss = -(labels * torch.log(outputs) + (1-labels)*torch.log(1-outputs)).mean()
+        else:
+            raise ValueError('wrong type specificed, either c or b')
+        return loss
+
+    def _accuracy(self, predict):
+        if self.type == 'c':
+            accu = np.corrcoef(self.y.flatten(),
+                               predict.data.numpy().flatten())**2
+            accu = accu[0][1]
+        else:
+            accu = np.mean(np.round(predict.data.numpy()) == self.y)
+        return accu
+
+    def run(self, penal='l1', lamb=0.01, epochs=201, l_rate=0.01, **kwargs):
+        """Run regression with the given paramters."""
+        model = self._model_builder(penal, **kwargs)
+
         optimizer = torch.optim.SGD(model.parameters(), lr=l_rate)
+        save_loss = list()
         for _ in range(epochs):
             input = Variable(torch.from_numpy(self.X)).float()
             labels = Variable(torch.from_numpy(self.y)).float()
             optimizer.zero_grad()
             outputs, penalty = model.forward(input)
-            loss = -(labels * torch.log(outputs) + (1-labels)*torch.log(1-outputs)).mean()
-            loss = loss + 0.01*penalty
+            loss = self._loss_function(labels, outputs)
+            loss = loss + lamb*penalty
             loss.backward()
             optimizer.step()
-            if _ % 100 == 0:
-                print("epoch {}, loss {}, norm {}".format(_, loss.item(), penalty.item()))
+            if (_+1) % 100 == 0:
+                print("epoch {}, loss {}, norm {}".format(_, loss.item(),
+                                                          penalty.item()))
+                if np.allclose(save_loss[-1], loss.item(), 1e-3):
+                    break
+            save_loss.append(loss.item())
         predict, penal = model.forward(Variable(torch.from_numpy(self.X)).float())
-        accu = np.mean(np.round(predict.data.numpy()) == self.y)
+        accu = self._accuracy(predict)
         print('Accuracy:', accu)
         print('Paramters:')
         for param in model.parameters():

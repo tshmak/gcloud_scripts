@@ -5,7 +5,8 @@ import os
 from google.cloud import storage
 import pickle
 import numpy as np
-import cProfile
+import os
+from pytorch_regression import pytorch_linear
 
 
 class genetic_testdata(object):
@@ -59,6 +60,39 @@ class genetic_testdata(object):
             self._download(gc_path, output_path)
         return os.path.join(self.download_path, file)
 
+    def download_file(self, file):
+        """Download any given file."""
+        output_path = os.path.join(self.download_path, os.path.basename(file))
+        gc_path = file
+        if not os.path.isfile(output_path):
+            self._download(gc_path, output_path)
+        return output_path
+
+
+class DataProcessing(object):
+    """Processe phenotypes."""
+
+    def __init__(self, pheno):
+        """Process phenotypes."""
+        super(DataProcessing, self).__init__()
+        assert isinstance(pheno, str)
+        assert os.path.isfile(pheno)
+        self.pheno_path = pheno
+
+    def get_pheno(self, x):
+        """Get a specific phenotype."""
+        assert x > 0
+        assert isinstance(x, int)
+        smaller_pheno_file = os.path.join("/tmp",
+                                          'smaller_pheno.tab')
+        os.system('cut -f1,2,3,4,5,{} {} > {}'.format(str(x+6),
+                                                      self.pheno_path,
+                                                      smaller_pheno_file))
+
+        pheno = pd.read_csv(smaller_pheno_file, sep='\t')
+        pheno = pheno.rename(columns={pheno.columns.values[-1]:'pheno'})
+        return pheno
+
 
 class Genetic_data_read(object):
     """Provides batch reading of plink Files."""
@@ -102,7 +136,7 @@ class Genetic_data_read(object):
                     start = row['start']
                     end = row['stop']
                     rsids = subset_bim[(self.bim.pos >= start)
-                                     & (self.bim.pos <= end)].index.values
+                                        & (self.bim.pos <= end)].index.values
                     out[chr].append(rsids)
             return out
 
@@ -143,9 +177,19 @@ class Genetic_data_read(object):
 
 if __name__ == '__main__':
     download_path = 'tensor/data/'
+    sim_path = 'data/phenotypes/simulated_chr10.txt'
     downloader = genetic_testdata(download_path)
-    plink_stem = downloader.download_1kg_chr22()
+    # plink_stem = downloader.download_1kg_chr22()
+    plink_stem = downloader.download_ukb_chr10()
     ld_blocks = downloader.download_ldblocks()
+    pheno_file = downloader.download_file(sim_path)
+    pheno_reader = DataProcessing(pheno_file)
+    ph = pheno_reader.get_pheno(1)
+    y = ph['pheno'].values
 
     genetic_process = Genetic_data_read(plink_stem, ld_blocks)
-    out = genetic_process.block_iter()
+    out = genetic_process.block_iter(10)
+    X = next(out)
+    model_comparision_file = os.path.join(download_path, 'model.comparisions')
+    pytorchmodel = pytorch_linear(X, y, model_comparision_file, True, type='c')
+    pytorchmodel.run(penal='l1')
