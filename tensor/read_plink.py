@@ -6,6 +6,7 @@ from google.cloud import storage
 import pickle
 import numpy as np
 from pytorch_regression import pytorch_linear
+from sklearn.preprocessing import scale
 
 
 class genetic_testdata(object):
@@ -191,6 +192,8 @@ if __name__ == '__main__':
     genetic_process = Genetic_data_read(plink_stem, ld_blocks)
     out = genetic_process.block_iter(10)
     X = next(out)
+    X = scale(X)
     model_comparision_file = os.path.join(download_path, 'model.comparisions')
-    pytorchmodel = pytorch_linear(X, y, model_comparision_file, True, type='c')
+    pytorchmodel = pytorch_linear(X, y, model_comparision_file,
+                                  False, type='c')
     pytorchmodel.run(penal='l1')

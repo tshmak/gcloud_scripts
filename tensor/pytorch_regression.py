@@ -126,16 +126,19 @@ class L12Linear(_L12Norm):
 class pytorch_linear(object):
     """Penalized regresssion with L1/L2/L0 norm."""
 
-    def __init__(self, X, y, model_log, overwrite=False, type='b'):
+    def __init__(self, X, y, model_log, overwrite=False,
+                 type='b', mini_batch_size=5000):
         """Penalized regression."""
         super(pytorch_linear, self).__init__()
         self.model_log = model_log
         self.overwrite = overwrite
-        self.X = X
-        self.y = y.reshape(len(y), 1)
-        self.input_dim = X.shape[1]
+        self._suffle_ids = np.random.randint(0, self.n)
+        self.n, self.input_dim = X.shape
         self.output_dim = 1
         self.type = type
+        self.mini_batch_size = mini_batch_size
+        self.X = X[self._suffle_ids, :]
+        self.y = y[self._suffle_ids, :].reshape(self.n, 1)
         print(self.input_dim, self.output_dim)
         if not os.path.isfile(model_log):
             with open(model_log, 'w', encoding='utf-8') as f:
@@ -176,15 +179,26 @@ class pytorch_linear(object):
             accu = np.mean(np.round(predict.data.numpy()) == self.y)
         return accu
 
+    def _iterator(self, x, y):
+        start = 0
+        end = self.mini_batch
+        while True:
+            if end > self.n:
+                end = end - self.n
+            yield x[start:end, :], y[start:end, :]
+            start = np.abs(end)
+            end = start + self.mini_batch_size
+
     def run(self, penal='l1', lamb=0.01, epochs=201, l_rate=0.01, **kwargs):
         """Run regression with the given paramters."""
         model = self._model_builder(penal, **kwargs)
-
+        dataset = self._iterator(self.X, self.y)
         optimizer = torch.optim.SGD(model.parameters(), lr=l_rate)
         save_loss = list()
         for _ in range(epochs):
-            input = Variable(torch.from_numpy(self.X)).float()
-            labels = Variable(torch.from_numpy(self.y)).float()
+            xx, yy = dataset.next()
+            input = Variable(torch.from_numpy(xx)).float()
+            labels = Variable(torch.from_numpy(yy)).float()
             optimizer.zero_grad()
             outputs, penalty = model.forward(input)
             loss = self._loss_function(labels, outputs)
@@ -197,7 +211,8 @@ class pytorch_linear(object):
                 if np.allclose(save_loss[-1], loss.item(), 1e-3):
                     break
             save_loss.append(loss.item())
-        predict, penal = model.forward(input)
+        alldata = Variable(torch.from_numpy(self.X)).float()
+        predict, penal = model.forward(alldata)
         accu = self._accuracy(predict)
         print('Accuracy:', accu)
         print('Paramters:')
