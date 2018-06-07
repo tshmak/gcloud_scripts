@@ -5,7 +5,6 @@ import os
 from google.cloud import storage
 import pickle
 import numpy as np
-import os
 from pytorch_regression import pytorch_linear
 
 
@@ -90,7 +89,7 @@ class DataProcessing(object):
                                                       smaller_pheno_file))
 
         pheno = pd.read_csv(smaller_pheno_file, sep='\t')
-        pheno = pheno.rename(columns={pheno.columns.values[-1]:'pheno'})
+        pheno = pheno.rename(columns={pheno.columns.values[-1]: 'pheno'})
         return pheno
 
 
@@ -135,8 +134,10 @@ class Genetic_data_read(object):
                 for index, row in subset_blocks.iterrows():
                     start = row['start']
                     end = row['stop']
-                    rsids = subset_bim[(self.bim.pos >= start)
-                                        & (self.bim.pos <= end)].index.values
+                    rsids = subset_bim[
+                        (self.bim.pos >= start)
+                        & (self.bim.pos <= end)
+                         ].index.values
                     out[chr].append(rsids)
             return out
 

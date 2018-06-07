@@ -23,8 +23,8 @@ class _L0Norm(nn.Module):
         """Class of layers using L0 Norm.
 
         :param origin: original layer such as nn.Linear(..), nn.Conv2d(..)
-        :param loc_mean: mean of the normal distribution which generates initial location parameters
-        :param loc_sdev: standard deviation of the normal distribution which generates initial location parameters
+        :param loc_mean: mean of the normal of initial location parameters
+        :param loc_sdev: standard deviation of initial location parameters
         :param beta: initial temperature parameter
         :param gamma: lower bound of "stretched" s
         :param zeta: upper bound of "stretched" s
@@ -33,8 +33,10 @@ class _L0Norm(nn.Module):
         super(_L0Norm, self).__init__()
         self._origin = origin
         self._size = self._origin.weight.size()
-        self.loc = nn.Parameter(torch.zeros(self._size).normal_(loc_mean, loc_sdev))
-        self.temp = beta if fix_temp else nn.Parameter(torch.zeros(1).fill_(beta))
+        self.loc = nn.Parameter(torch.zeros(self._size).normal_(loc_mean,
+                                                                loc_sdev))
+        self.temp = beta if fix_temp else nn.Parameter(
+            torch.zeros(1).fill_(beta))
         self.register_buffer("uniform", torch.zeros(self._size))
         self.gamma = gamma
         self.zeta = zeta
@@ -101,7 +103,9 @@ class L12Linear(_L12Norm):
 
     def __init__(self, in_features, out_features, penal, bias=True, **kwargs):
         """Linear model with L0 norm."""
-        super(L12Linear, self).__init__(nn.Linear(in_features, out_features, bias=bias), **kwargs)
+        super(L12Linear, self).__init__(nn.Linear(in_features,
+                                                  out_features,
+                                                  bias=bias), **kwargs)
         self.penal = penal
 
     def forward(self, input):
@@ -157,7 +161,8 @@ class pytorch_linear(object):
         if self.type == 'c':
             loss = ((labels - outputs)**2).mean()
         elif self.type == 'b':
-            loss = -(labels * torch.log(outputs) + (1-labels)*torch.log(1-outputs)).mean()
+            loss = -(labels * torch.log(outputs)
+                     + (1-labels)*torch.log(1-outputs)).mean()
         else:
             raise ValueError('wrong type specificed, either c or b')
         return loss
@@ -192,13 +197,21 @@ class pytorch_linear(object):
                 if np.allclose(save_loss[-1], loss.item(), 1e-3):
                     break
             save_loss.append(loss.item())
-        predict, penal = model.forward(Variable(torch.from_numpy(self.X)).float())
+        predict, penal = model.forward(input)
         accu = self._accuracy(predict)
         print('Accuracy:', accu)
         print('Paramters:')
-        for param in model.parameters():
+        coef = []
+        for name, param in model.named_parameters():
+            print(name)
             print(param.data)
-            print(torch.sum(param.data))
+            coef.append(param.data.numpy())
+        param = {}
+        param['lambda'] = lamb
+        param['epoch'] = epochs
+        param['penal'] = penal
+        param['type'] = self.type
+        self._write_model(param, coef, accu, 'torch_'+penal+'_'+self.type)
 
     def _write_model(self, param, coef, score, model_name):
         output = {}

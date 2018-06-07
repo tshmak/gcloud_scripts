@@ -11,10 +11,13 @@ import numpy as np
 def get_test_data(download_path='tensor/data'):
     """Download and processing of test data."""
     DATA_PATH = os.path.abspath(download_path)
-    TESTDATA_URL = "https://archive.ics.uci.edu/ml/machine-learning-databases/undocumented/connectionist-bench/sonar/sonar.all-data"
+    TESTDATA_URL = "https://archive.ics.uci.edu/ml/" \
+        "machine-learning-databases/undocumented/" \
+        "connectionist-bench/sonar/sonar.all-data"
     download_data(TESTDATA_URL, DATA_PATH)
 
-    testdata = pd.read_csv(os.path.join(DATA_PATH, 'sonar.all-data'), header=None)
+    testdata = pd.read_csv(os.path.join(DATA_PATH, 'sonar.all-data'),
+                           header=None)
     print("Test data has ", testdata.shape[0], "rows")
     print("Test data has ", testdata.shape[1], "features")
     X = scale(testdata.iloc[:, :-1])
