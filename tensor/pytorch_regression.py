@@ -131,15 +131,17 @@ class pytorch_linear(object):
         """Penalized regression."""
         super(pytorch_linear, self).__init__()
         self.model_log = model_log
-        self.overwrite = overwrite
-        self._suffle_ids = np.random.randint(0, self.n)
         self.n, self.input_dim = X.shape
+        self.overwrite = overwrite
+        self._shuffle_ids = np.arange(self.n)
+        np.random.shuffle(self._shuffle_ids)
         self.output_dim = 1
         self.type = type
         self.mini_batch_size = mini_batch_size
-        self.X = X[self._suffle_ids, :]
-        self.y = y[self._suffle_ids, :].reshape(self.n, 1)
-        print(self.input_dim, self.output_dim)
+        assert mini_batch_size <= self.n
+        self.X = X[self._shuffle_ids, :]
+        self.y = y[self._shuffle_ids].reshape(self.n, 1)
+        print("init X shape", self.X.shape)
         if not os.path.isfile(model_log):
             with open(model_log, 'w', encoding='utf-8') as f:
                 pickle.dump([], f)
@@ -181,11 +183,18 @@ class pytorch_linear(object):
 
     def _iterator(self, x, y):
         start = 0
-        end = self.mini_batch
+        end = self.mini_batch_size
+        index = np.arange(self.n)
         while True:
-            if end > self.n:
+            if end >= self.n:
                 end = end - self.n
-            yield x[start:end, :], y[start:end, :]
+            if start >= self.n:
+                start = start - self.n
+            bool_index = ~((index >= start) ^ (index < end))
+            if start > end:
+                bool_index = ~(bool_index)
+            assert np.sum(bool_index) == self.mini_batch_size
+            yield x[bool_index, :], y[bool_index, :]
             start = np.abs(end)
             end = start + self.mini_batch_size
 
@@ -196,7 +205,7 @@ class pytorch_linear(object):
         optimizer = torch.optim.SGD(model.parameters(), lr=l_rate)
         save_loss = list()
         for _ in range(epochs):
-            xx, yy = dataset.next()
+            xx, yy = next(dataset)
             input = Variable(torch.from_numpy(xx)).float()
             labels = Variable(torch.from_numpy(yy)).float()
             optimizer.zero_grad()
@@ -208,11 +217,11 @@ class pytorch_linear(object):
             if (_+1) % 100 == 0:
                 print("epoch {}, loss {}, norm {}".format(_, loss.item(),
                                                           penalty.item()))
-                if np.allclose(save_loss[-1], loss.item(), 1e-3):
+                if np.allclose(save_loss[-50], loss.item(), 1e-4):
                     break
             save_loss.append(loss.item())
         alldata = Variable(torch.from_numpy(self.X)).float()
-        predict, penal = model.forward(alldata)
+        predict, penalty = model.forward(alldata)
         accu = self._accuracy(predict)
         print('Accuracy:', accu)
         print('Paramters:')

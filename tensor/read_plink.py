@@ -1,5 +1,6 @@
 """Read plink files by predefined chuncks."""
 from pyplink import PyPlink
+import numpy as np
 import pandas as pd
 import os
 from google.cloud import storage
@@ -194,6 +195,7 @@ if __name__ == '__main__':
     X = next(out)
     X = scale(X)
     model_comparision_file = os.path.join(download_path, 'model.comparisions')
+    n = X.shape[0]
     pytorchmodel = pytorch_linear(X, y, model_comparision_file,
-                                  False, type='c')
+                                  False, type='c', mini_batch_size=10000)
     pytorchmodel.run(penal='l1')
