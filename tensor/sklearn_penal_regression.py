@@ -10,7 +10,8 @@ import pickle
 class sklearn_models(object):
     """Sklearn models."""
 
-    def __init__(self, X, y, model_log, overwrite=False):
+    def __init__(self, X: np.array, y: np.array,
+                 model_log: str, overwrite: bool = False):
         """Sklearn models."""
         super(sklearn_models, self).__init__()
         self.model_log = model_log
@@ -25,14 +26,14 @@ class sklearn_models(object):
                 pickle.dump([], f)
         assert os.path.isfile(self.model_log)
 
-    def _write_model(self, param, coef, score, model_name):
+    def _write_model(self, param: dict, coef: np.array,
+                     score: float, model_name: str):
         output = {}
         output['param'] = param
         output['coef'] = coef
         output['score'] = score
         output['time'] = str(datetime.datetime.now())
         output['name'] = model_name
-        print(output)
         feed = pickle.load(open(self.model_log, 'rb'))
         with open(self.model_log, 'wb') as f:
             feed.append(output)

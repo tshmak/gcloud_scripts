@@ -6,11 +6,12 @@ from pytorch_regression import pytorch_linear
 import os
 import pandas as pd
 import numpy as np
+from typing import Tuple, Any
 
 
-def get_test_data(download_path='tensor/data'):
+def get_test_data(d_path: str = 'tensor/data') -> Tuple[Any, Any]:
     """Download and processing of test data."""
-    DATA_PATH = os.path.abspath(download_path)
+    DATA_PATH = os.path.abspath(d_path)
     TESTDATA_URL = "https://archive.ics.uci.edu/ml/" \
         "machine-learning-databases/undocumented/" \
         "connectionist-bench/sonar/sonar.all-data"
@@ -26,7 +27,6 @@ def get_test_data(download_path='tensor/data'):
     encoder = LabelEncoder()
     encoder.fit(np.unique(y))
     y = encoder.transform(y)
-
     return X, y
 
 

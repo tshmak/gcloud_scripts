@@ -5,28 +5,28 @@ import pandas as pd
 import os
 from google.cloud import storage
 import pickle
-import numpy as np
 from pytorch_regression import pytorch_linear
 from sklearn.preprocessing import scale
+from typing import Any
 
 
 class genetic_testdata(object):
     """Import and process genetic data in plink format for ML."""
 
-    def __init__(self, download_path):
+    def __init__(self, download_path: str):
         """Perpare genetic data."""
         super(genetic_testdata, self).__init__()
         self.download_path = download_path
         self._gc_client = storage.Client('Hail')
         self._bucket = self._gc_client.get_bucket('ukb_testdata')
 
-    def _download(self, gc_path, output_path):
+    def _download(self, gc_path: str, output_path: str):
         if ('gs' in gc_path) or ('ukb_testdata' in gc_path):
             raise ValueError('path is the path AFTER the bucket name')
         blob = self._bucket.blob(gc_path)
         blob.download_to_filename(output_path)
 
-    def download_1kg_chr22(self):
+    def download_1kg_chr22(self) -> str:
         """Download chr22 from the 1K Genome."""
         files = ['1kg_phase1_chr22.' + k for k in ['bed', 'bim', 'fam']]
         print('start downloading files')
@@ -39,7 +39,7 @@ class genetic_testdata(object):
         print('Files were donwloaded to {}'.format(self.download_path))
         return os.path.join(self.download_path, '1kg_phase1_chr22')
 
-    def download_ukb_chr10(self):
+    def download_ukb_chr10(self) -> str:
         """Download chr10 from the UKB (maf>=0.01)."""
         files = ['maf_0.01_10.' + k for k in ['bed', 'bim', 'fam']]
         print('start downloading files')
@@ -52,7 +52,7 @@ class genetic_testdata(object):
         print('Files were donwloaded to {}'.format(self.download_path))
         return os.path.join(self.download_path, 'maf_0.01_10')
 
-    def download_ldblocks(self):
+    def download_ldblocks(self) -> str:
         """Download LD block file."""
         file = 'Berisa.EUR.hg19.bed'
         output_path = os.path.join(self.download_path, file)
@@ -61,7 +61,7 @@ class genetic_testdata(object):
             self._download(gc_path, output_path)
         return os.path.join(self.download_path, file)
 
-    def download_file(self, file):
+    def download_file(self, file: str) -> str:
         """Download any given file."""
         output_path = os.path.join(self.download_path, os.path.basename(file))
         gc_path = file
@@ -73,14 +73,14 @@ class genetic_testdata(object):
 class DataProcessing(object):
     """Processe phenotypes."""
 
-    def __init__(self, pheno):
+    def __init__(self, pheno: str):
         """Process phenotypes."""
         super(DataProcessing, self).__init__()
         assert isinstance(pheno, str)
         assert os.path.isfile(pheno)
         self.pheno_path = pheno
 
-    def get_pheno(self, x):
+    def get_pheno(self, x: int) -> Any:
         """Get a specific phenotype."""
         assert x > 0
         assert isinstance(x, int)
@@ -98,7 +98,7 @@ class DataProcessing(object):
 class Genetic_data_read(object):
     """Provides batch reading of plink Files."""
 
-    def __init__(self, plink_file, batches=None):
+    def __init__(self, plink_file: str, batches: bool = None):
         """Provide batch reading of plink Files."""
         super(Genetic_data_read, self).__init__()
         self.plink_file = plink_file
@@ -122,7 +122,7 @@ class Genetic_data_read(object):
         else:
             self.groups = None
 
-    def _preprocessing_ldblock(self):
+    def _preprocessing_ldblock(self) -> dict:
         if self.groups is None:
             return None
         else:
@@ -143,19 +143,7 @@ class Genetic_data_read(object):
                     out[chr].append(rsids)
             return out
 
-    def _get_block(self, snp, chr):
-        block_id = None
-        pos_id = None
-        len_block = None
-        for i, block in enumerate(self.groups[chr]):
-            len_block = len(block)
-            for u, id in enumerate(block):
-                if snp == id:
-                    block_id = i
-                    pos_id = u
-                    return block_id, pos_id, len_block
-
-    def block_iter(self, chr=22):
+    def block_iter(self, chr: int = 22) -> Any:
         """Block iteration."""
         assert chr in self.chromosoms
         current_block = 0
@@ -179,6 +167,7 @@ class Genetic_data_read(object):
 
 
 if __name__ == '__main__':
+    # Downloads
     download_path = 'tensor/data/'
     sim_path = 'data/phenotypes/simulated_chr10.txt'
     downloader = genetic_testdata(download_path)
@@ -186,16 +175,18 @@ if __name__ == '__main__':
     plink_stem = downloader.download_ukb_chr10()
     ld_blocks = downloader.download_ldblocks()
     pheno_file = downloader.download_file(sim_path)
+    # Phenotype processing
     pheno_reader = DataProcessing(pheno_file)
     ph = pheno_reader.get_pheno(1)
     y = ph['pheno'].values
-
+    # Reading of genetic data
     genetic_process = Genetic_data_read(plink_stem, ld_blocks)
     out = genetic_process.block_iter(10)
+    # Trial run for a single LD block
     X = next(out)
     X = scale(X)
+    # Setting up the model
     model_comparision_file = os.path.join(download_path, 'model.comparisions')
-    n = X.shape[0]
     pytorchmodel = pytorch_linear(X, y, model_comparision_file,
                                   False, type='c', mini_batch_size=10000)
     pytorchmodel.run(penal='l1')

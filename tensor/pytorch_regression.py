@@ -17,9 +17,10 @@ def hard_sigmoid(x):
 class _L0Norm(nn.Module):
     """L0 norm."""
 
-    def __init__(self, origin, loc_mean=0, loc_sdev=0.01,
-                 beta=2 / 3, gamma=-0.1,
-                 zeta=1.1, fix_temp=True):
+    def __init__(self, origin, loc_mean: float = 0.0,
+                 loc_sdev: float = 0.01,
+                 beta: float = 2/3, gamma: float = -0.1,
+                 zeta: float = 1.1, fix_temp: bool = True):
         """Class of layers using L0 Norm.
 
         :param origin: original layer such as nn.Linear(..), nn.Conv2d(..)
@@ -58,7 +59,8 @@ class _L0Norm(nn.Module):
 class L0Linear(_L0Norm):
     """Linear model with L0 norm."""
 
-    def __init__(self, in_features, out_features, bias=True, **kwargs):
+    def __init__(self, in_features: int, out_features: int,
+                 bias: bool = True, **kwargs):
         """Linear model with L0 norm."""
         super(L0Linear, self).__init__(nn.Linear(in_features, out_features,
                                                  bias=bias), **kwargs)
