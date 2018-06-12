@@ -200,7 +200,8 @@ class pytorch_linear(object):
             start = np.abs(end)
             end = start + self.mini_batch_size
 
-    def run(self, penal='l1', lamb=0.01, epochs=201, l_rate=0.01, **kwargs):
+    def run(self, penal: str = 'l1', lamb: float = 0.01,
+            epochs: int = 201, l_rate: float = 0.01, **kwargs):
         """Run regression with the given paramters."""
         model = self._model_builder(penal, **kwargs)
         dataset = self._iterator(self.X, self.y)

@@ -1,73 +1,11 @@
 """Read plink files by predefined chuncks."""
-from pyplink import PyPlink
-import numpy as np
 import pandas as pd
 import os
-from google.cloud import storage
-import pickle
 from pytorch_regression import pytorch_linear
 from sklearn.preprocessing import scale
 from typing import Any
-
-
-class genetic_testdata(object):
-    """Import and process genetic data in plink format for ML."""
-
-    def __init__(self, download_path: str):
-        """Perpare genetic data."""
-        super(genetic_testdata, self).__init__()
-        self.download_path = download_path
-        self._gc_client = storage.Client('Hail')
-        self._bucket = self._gc_client.get_bucket('ukb_testdata')
-
-    def _download(self, gc_path: str, output_path: str):
-        if ('gs' in gc_path) or ('ukb_testdata' in gc_path):
-            raise ValueError('path is the path AFTER the bucket name')
-        blob = self._bucket.blob(gc_path)
-        blob.download_to_filename(output_path)
-
-    def download_1kg_chr22(self) -> str:
-        """Download chr22 from the 1K Genome."""
-        files = ['1kg_phase1_chr22.' + k for k in ['bed', 'bim', 'fam']]
-        print('start downloading files')
-        for f in files:
-            output_path = os.path.join(self.download_path, f)
-            gc_path = os.path.join('data', f)
-            if os.path.isfile(output_path):
-                continue
-            self._download(gc_path, output_path)
-        print('Files were donwloaded to {}'.format(self.download_path))
-        return os.path.join(self.download_path, '1kg_phase1_chr22')
-
-    def download_ukb_chr10(self) -> str:
-        """Download chr10 from the UKB (maf>=0.01)."""
-        files = ['maf_0.01_10.' + k for k in ['bed', 'bim', 'fam']]
-        print('start downloading files')
-        for f in files:
-            output_path = os.path.join(self.download_path, f)
-            gc_path = os.path.join('data', f)
-            if os.path.isfile(output_path):
-                continue
-            self._download(gc_path, output_path)
-        print('Files were donwloaded to {}'.format(self.download_path))
-        return os.path.join(self.download_path, 'maf_0.01_10')
-
-    def download_ldblocks(self) -> str:
-        """Download LD block file."""
-        file = 'Berisa.EUR.hg19.bed'
-        output_path = os.path.join(self.download_path, file)
-        gc_path = os.path.join('data', file)
-        if not os.path.isfile(output_path):
-            self._download(gc_path, output_path)
-        return os.path.join(self.download_path, file)
-
-    def download_file(self, file: str) -> str:
-        """Download any given file."""
-        output_path = os.path.join(self.download_path, os.path.basename(file))
-        gc_path = file
-        if not os.path.isfile(output_path):
-            self._download(gc_path, output_path)
-        return output_path
+from plink_reader import Genetic_data_read
+from data_download import genetic_testdata
 
 
 class DataProcessing(object):
@@ -93,77 +31,6 @@ class DataProcessing(object):
         pheno = pd.read_csv(smaller_pheno_file, sep='\t')
         pheno = pheno.rename(columns={pheno.columns.values[-1]: 'pheno'})
         return pheno
-
-
-class Genetic_data_read(object):
-    """Provides batch reading of plink Files."""
-
-    def __init__(self, plink_file: str, batches: bool = None):
-        """Provide batch reading of plink Files."""
-        super(Genetic_data_read, self).__init__()
-        self.plink_file = plink_file
-        self.plink_reader = PyPlink(plink_file)
-        self.bim = self.plink_reader.get_bim()
-        self.n = self.plink_reader.get_nb_samples()
-        self.bim.columns = [k.strip() for k in self.bim.columns]
-        self.chromosoms = self.bim.chrom.unique()
-        if batches is not None:
-            self._dirname = os.path.dirname(plink_file)
-            self._pickel_path = plink_file+'.ld_blocks.pickel'
-            if os.path.isfile(self._pickel_path):
-                self.groups = pickle.load(open(self._pickel_path, 'rb'))
-            else:
-                self.groups = pd.read_csv(batches, sep='\t')
-                self.groups.columns = [k.strip() for k in self.groups.columns]
-                self.groups['chr'] = self.groups['chr'].str.strip('chr')
-                self.groups['chr'] = self.groups['chr'].astype(int)
-                self.groups = self._preprocessing_ldblock()
-                pickle.dump(self.groups, open(self._pickel_path, 'wb'))
-        else:
-            self.groups = None
-
-    def _preprocessing_ldblock(self) -> dict:
-        if self.groups is None:
-            return None
-        else:
-            out = {}
-            for chr in self.chromosoms:
-                subset_blocks = self.groups[self.groups.chr == chr]
-                subset_bim = self.bim[self.bim.chrom == chr]
-                out[chr] = []
-                print(subset_bim.dtypes)
-                print(subset_blocks.dtypes)
-                for index, row in subset_blocks.iterrows():
-                    start = row['start']
-                    end = row['stop']
-                    rsids = subset_bim[
-                        (self.bim.pos >= start)
-                        & (self.bim.pos <= end)
-                         ].index.values
-                    out[chr].append(rsids)
-            return out
-
-    def block_iter(self, chr: int = 22) -> Any:
-        """Block iteration."""
-        assert chr in self.chromosoms
-        current_block = 0
-        block_ids = self.groups[chr][current_block]
-        size_block = len(block_ids)
-        genotypematrix = np.zeros((self.n, size_block))
-        pos_id = 0
-        for snp, genotypes in self.plink_reader.iter_geno():
-            if snp not in block_ids:
-                continue
-            else:
-                genotypematrix[:, pos_id] = genotypes
-                pos_id += 1
-                if pos_id >= (size_block - 1):
-                    yield genotypematrix
-                    pos_id = 0
-                    current_block += 1
-                    block_ids = self.groups[chr][current_block]
-                    size_block = len(block_ids)
-                    genotypematrix = np.zeros((self.n, size_block))
 
 
 if __name__ == '__main__':
