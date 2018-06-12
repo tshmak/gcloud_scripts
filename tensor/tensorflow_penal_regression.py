@@ -9,7 +9,7 @@ import datetime
 class tensorflow_models(object):
     """Tensorflow implementations."""
 
-    def __init__(self, X, y, model_log, overwrite=False):
+    def __init__(self, X, y, model_log, overwrite=False, type: str = 'b'):
         """Tensorflow implementations."""
         super(tensorflow_models, self).__init__()
         self.model_log = model_log
@@ -37,41 +37,48 @@ class tensorflow_models(object):
             feed.append(output)
             pickle.dump(feed, f)
 
-    def l1_penal(self, x, lamb):
+    def _l1_penal(self, x, lamb):
         """L1 penalty."""
         lamb = tf.constant(lamb)
         return lamb*tf.reduce_sum(tf.abs(x))
 
-    def l2_penal(self, x, lamb):
+    def _l2_penal(self, x, lamb):
         """L1 penalty."""
         lamb = tf.constant(lamb)
         return lamb*tf.reduce_sum(tf.square(x))
 
-    def model(self, regular='l1'):
+    def _loss(self, y_, y):
+        if self.type == 'c':
+            lostfunction = tf.reduce_mean(tf.square(y_ - y))
+            return lostfunction
+        elif self.type == 'b':
+            lostfunction = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y_, labels=y))
+            return lostfunction
+        else:
+            raise ValueError('type has to be either c or b')
+
+    def run(self, penal='l1', lamb=0.01, l_rate=0.01, epochs=201):
         """L1 norm as implemented in tensorflow."""
-        if regular == 'l1':
-            reg_fun = self.l1_penal
-        elif regular == 'l2':
-            reg_fun = self.l2_penal
+        if penal == 'l1':
+            reg_fun = self._l1_penal
+        elif penal == 'l2':
+            reg_fun = self._l2_penal
         else:
             raise ValueError('no valid regularzation parameter')
 
         n, p = self.X.shape
         x = tf.placeholder(tf.float32, shape=[n, p])
         y = tf.placeholder(tf.float32, shape=[n, 1])
-        lamb = 0.05
-        learning_rate = 0.01
-        epoch = 801
         debug = True
 
         # model
         W = tf.Variable(tf.zeros([p, 1]))
         b = tf.Variable(tf.zeros([1]))
         y_ = tf.matmul(x, W) + b
-        lostfunction = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y_, labels=y))
         regularization = reg_fun(W, lamb)
+        lostfunction = self._loss(y_, y)
         cost = lostfunction + regularization
-        train_op = tf.train.AdagradOptimizer(learning_rate).minimize(cost)
+        train_op = tf.train.AdagradOptimizer(l_rate).minimize(cost)
         feed_dict = {x: self.X, y: self.y}
         init = tf.global_variables_initializer()
 
@@ -79,7 +86,7 @@ class tensorflow_models(object):
         with tf.Session() as sess:
             sess.run(init)
             last_cost = cost.eval(feed_dict)
-            for _ in range(epoch):
+            for _ in range(epochs):
                 op, current_cost = sess.run([train_op, cost], feed_dict=feed_dict)
 
                 if ((_ % 100 == 0) and debug):
@@ -96,12 +103,13 @@ class tensorflow_models(object):
 
             coef = tf.cast(W, tf.float32).eval(feed_dict)
             param = {
-                    'learning_rate': learning_rate,
-                    'epoch': epoch,
+                    'learning_rate': l_rate,
+                    'epoch': epochs,
                     'lambda': lamb,
-                    'norm': regular}
+                    'type': self.type,
+                    'norm': lamb}
 
             self._write_model(
                 param, coef,
                 accuracy.eval(feed_dict),
-                regular + ' tensorflow')
+                penal + ' tensorflow')

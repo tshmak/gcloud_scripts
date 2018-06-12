@@ -11,13 +11,15 @@ class sklearn_models(object):
     """Sklearn models."""
 
     def __init__(self, X: np.array, y: np.array,
-                 model_log: str, overwrite: bool = False):
+                 model_log: str, overwrite: bool = False,
+                 type: str = 'b'):
         """Sklearn models."""
         super(sklearn_models, self).__init__()
         self.model_log = model_log
         self.overwrite = overwrite
         self.X = X
         self.y = y
+        self.type = type
         if not os.path.isfile(model_log):
             with open(model_log, 'w', encoding='utf-8') as f:
                 pickle.dump([], f)
@@ -39,9 +41,15 @@ class sklearn_models(object):
             feed.append(output)
             pickle.dump(feed, f)
 
-    def l1_model(self):
-        """Sklearn L1 model."""
-        model = lm.LogisticRegression(penalty='l1')
+    def run(self, penal: str = 'l1', lamb: float = 0.01):
+        """Run sklearn regression."""
+        if self.type == 'b':
+            model = lm.LogisticRegression(penalty=penal)
+        elif self.type == 'c':
+            model = lm.LinearRegression(penalty=penal)
+        else:
+            raise ValueError('type has to be either b or c')
+
         model.fit(self.X, self.y)
         param = model.get_params()
         coef = model.coef_
@@ -50,21 +58,7 @@ class sklearn_models(object):
             'Model': 'L1 Norm sklearn',
             'time': str(datetime.datetime.now()),
             'score': score,
-            'Num. of non-zero coef': np.sum(coef != 0)}
+            'Num. of non-zero coef': np.sum(coef != 0),
+            'type': self.type}
         pprint.pprint(show_output)
-        self._write_model(param, coef, score, 'L1 Norm sklearn')
-
-    def l2_model(self):
-        """Sklearn L1 model."""
-        model = lm.LogisticRegression(penalty='l2')
-        model.fit(self.X, self.y)
-        param = model.get_params()
-        coef = model.coef_
-        score = model.score(self.X, self.y)
-        show_output = {
-            'Model': 'L2 Norm sklearn',
-            'time': str(datetime.datetime.now()),
-            'score': score,
-            'Num. of non-zero coef': np.sum(coef != 0)}
-        pprint.pprint(show_output)
-        self._write_model(param, coef, score, 'L2 Norm sklearn')
+        self._write_model(param, coef, score, penal+' Norm sklearn')
