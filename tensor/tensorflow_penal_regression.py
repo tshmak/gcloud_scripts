@@ -9,13 +9,16 @@ import datetime
 class tensorflow_models(object):
     """Tensorflow implementations."""
 
-    def __init__(self, X, y, model_log, overwrite=False, type: str = 'b'):
+    def __init__(self, X, y, model_log, overwrite=False,
+                 type: str = 'b',
+                 mini_batch_size: int = 5000):
         """Tensorflow implementations."""
         super(tensorflow_models, self).__init__()
         self.model_log = model_log
         self.overwrite = overwrite
         self.X = X
         self.y = y.reshape(len(y), 1)
+        self.mini_batch_size = mini_batch_size
         if not os.path.isfile(model_log):
             with open(model_log, 'w', encoding='utf-8') as f:
                 pickle.dump([], f)
@@ -57,6 +60,23 @@ class tensorflow_models(object):
         else:
             raise ValueError('type has to be either c or b')
 
+    def _iterator(self, x, y):
+        start = 0
+        end = self.mini_batch_size
+        index = np.arange(self.n)
+        while True:
+            if end >= self.n:
+                end = end - self.n
+            if start >= self.n:
+                start = start - self.n
+            bool_index = ~((index >= start) ^ (index < end))
+            if start > end:
+                bool_index = ~(bool_index)
+            assert np.sum(bool_index) == self.mini_batch_size
+            yield x[bool_index, :], y[bool_index, :]
+            start = np.abs(end)
+            end = start + self.mini_batch_size
+
     def run(self, penal='l1', lamb=0.01, l_rate=0.01, epochs=201):
         """L1 norm as implemented in tensorflow."""
         if penal == 'l1':
@@ -65,6 +85,8 @@ class tensorflow_models(object):
             reg_fun = self._l2_penal
         else:
             raise ValueError('no valid regularzation parameter')
+
+        dataset = self._iterator(self.X, self.y)
 
         n, p = self.X.shape
         x = tf.placeholder(tf.float32, shape=[n, p])
@@ -79,14 +101,17 @@ class tensorflow_models(object):
         lostfunction = self._loss(y_, y)
         cost = lostfunction + regularization
         train_op = tf.train.AdagradOptimizer(l_rate).minimize(cost)
-        feed_dict = {x: self.X, y: self.y}
         init = tf.global_variables_initializer()
 
         cost_history = np.empty([0], dtype=float)
         with tf.Session() as sess:
             sess.run(init)
+            xx, yy = next(dataset)
+            feed_dict = {x: xx, y: yy}
             last_cost = cost.eval(feed_dict)
             for _ in range(epochs):
+                xx, yy = next(dataset)
+                feed_dict = {x: xx, y: yy}
                 op, current_cost = sess.run([train_op, cost], feed_dict=feed_dict)
 
                 if ((_ % 100 == 0) and debug):
