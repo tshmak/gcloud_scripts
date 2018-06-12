@@ -2,6 +2,9 @@
 import pandas as pd
 import os
 from pytorch_regression import pytorch_linear
+from tensorflow_penal_regression import tensorflow_models
+from pytorch_regression import pytorch_linear
+from sklearn_penal_regression import sklearn_models
 from sklearn.preprocessing import scale
 from typing import Any
 from plink_reader import Genetic_data_read
@@ -42,6 +45,10 @@ if __name__ == '__main__':
     plink_stem = downloader.download_ukb_chr10()
     ld_blocks = downloader.download_ldblocks()
     pheno_file = downloader.download_file(sim_path)
+    # Models
+    models = {'pytorch': pytorch_linear,
+              'tensor': tensorflow_models,
+              'sklearn': sklearn_models}
     # Phenotype processing
     pheno_reader = DataProcessing(pheno_file)
     ph = pheno_reader.get_pheno(1)
@@ -52,6 +59,7 @@ if __name__ == '__main__':
     # Trial run for a single LD block
     X = next(out)
     X = scale(X)
+    lamb = 0.01
     # Setting up the model
     model_comparision_file = os.path.join(download_path, 'model.comparisions')
     pytorchmodel = pytorch_linear(X, y, model_comparision_file,

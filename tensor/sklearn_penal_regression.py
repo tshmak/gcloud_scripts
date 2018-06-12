@@ -44,9 +44,9 @@ class sklearn_models(object):
     def run(self, penal: str = 'l1', lamb: float = 0.01):
         """Run sklearn regression."""
         if self.type == 'b':
-            model = lm.LogisticRegression(penalty=penal)
+            model = lm.LogisticRegression(penalty=penal, C=lamb)
         elif self.type == 'c':
-            model = lm.LinearRegression(penalty=penal)
+            model = lm.LinearRegression(penalty=penal, C=lamb)
         else:
             raise ValueError('type has to be either b or c')
 
