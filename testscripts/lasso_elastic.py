@@ -35,12 +35,10 @@ vds = vds.annotate_cols(**table[vds.s])
 # vds.select_cols('f1')
 
 print("current time is: ", time.asctime(time.localtime(time.time())))
-table2 = (hl.import_table(
-    'gs://ukb_testdata/zxli_test/LD_block.csv', delimiter=',', no_header=False).key_by('rsid'))
-# table.show()
+bed = hl.import_bed('gs://ukb_testdata/data/Berisa.EUR.hg19_modif.bed')
 print("current time is: ", time.asctime(time.localtime(time.time())))
 
-vds = vds.annotate_rows(**table2[vds.rsid])
+vds = vds.annotate_rows(LD_block = bed[vds.locus].target)
 
 gts_as_rows = vds.annotate_rows(
     mean = hl.agg.mean(hl.float(vds.GT.n_alt_alleles())),
