@@ -12,7 +12,7 @@ class sklearn_models(object):
 
     def __init__(self, X: np.array, y: np.array,
                  model_log: str, overwrite: bool = False,
-                 type: str = 'b'):
+                 type: str = 'b', mini_batch_size=100):
         """Sklearn models."""
         super(sklearn_models, self).__init__()
         self.model_log = model_log
@@ -20,6 +20,7 @@ class sklearn_models(object):
         self.X = X
         self.y = y
         self.type = type
+        self.mini_batch_size = mini_batch_size
         if not os.path.isfile(model_log):
             with open(model_log, 'w', encoding='utf-8') as f:
                 pickle.dump([], f)
@@ -41,12 +42,20 @@ class sklearn_models(object):
             feed.append(output)
             pickle.dump(feed, f)
 
+    def _SKLinearRegression(self, penalty: str, lamb: float):
+        if penalty == 'l1':
+            return lm.Lasso(alpha=lamb)
+        elif penalty == 'l2':
+            return lm.Ridge(alpha=lamb)
+        else:
+            raise ValueError('needs to be l1 or l2')
+
     def run(self, penal: str = 'l1', lamb: float = 0.01):
         """Run sklearn regression."""
         if self.type == 'b':
             model = lm.LogisticRegression(penalty=penal, C=lamb)
         elif self.type == 'c':
-            model = lm.LinearRegression(penalty=penal, C=lamb)
+            model = self._SKLinearRegression(penalty=penal, lamb=lamb)
         else:
             raise ValueError('type has to be either b or c')
 

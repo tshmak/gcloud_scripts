@@ -16,9 +16,11 @@ class tensorflow_models(object):
         super(tensorflow_models, self).__init__()
         self.model_log = model_log
         self.overwrite = overwrite
+        self.n, self.p = X.shape
         self.X = X
         self.y = y.reshape(len(y), 1)
         self.mini_batch_size = mini_batch_size
+        self.type = type
         if not os.path.isfile(model_log):
             with open(model_log, 'w', encoding='utf-8') as f:
                 pickle.dump([], f)
@@ -26,6 +28,17 @@ class tensorflow_models(object):
             with open(model_log, 'wb') as f:
                 pickle.dump([], f)
         assert os.path.isfile(self.model_log)
+        self._validation_sampling()
+
+    def _validation_sampling(self):
+        assert self.X is not None
+        assert self.y is not None
+        num_valid_samples = np.float(self.n*self.fraction_valid)
+        idx = np.random.randint(0, self.n, num_valid_samples)
+        self.X_valid = self.X[:, idx]
+        self.y_valid = self.y[:, idx]
+        self.X = np.delete(self.X, idx, axis=1)
+        self.y = np.delete(self.y, idx, axis=1)
 
     def _write_model(self, param, coef, score, model_name):
         output = {}
@@ -55,7 +68,8 @@ class tensorflow_models(object):
             lostfunction = tf.reduce_mean(tf.square(y_ - y))
             return lostfunction
         elif self.type == 'b':
-            lostfunction = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y_, labels=y))
+            sig = tf.nn.sigmoid_cross_entropy_with_logits(logits=y_, labels=y)
+            lostfunction = tf.reduce_mean(sig)
             return lostfunction
         else:
             raise ValueError('type has to be either c or b')
@@ -89,14 +103,18 @@ class tensorflow_models(object):
         dataset = self._iterator(self.X, self.y)
 
         n, p = self.X.shape
-        x = tf.placeholder(tf.float32, shape=[n, p])
-        y = tf.placeholder(tf.float32, shape=[n, 1])
+        n_valid, p_valid = self.X_valid.shape
+        x = tf.placeholder(tf.float32, shape=[self.mini_batch_size, p])
+        y = tf.placeholder(tf.float32, shape=[self.mini_batch_size, 1])
+        x_valid = tf.placeholder(tf.float32, shape=[n_valid, p_valid])
+        y_valid = tf.placeholder(tf.float32, shape=[n_valid, 1])
         debug = True
 
         # model
         W = tf.Variable(tf.zeros([p, 1]))
         b = tf.Variable(tf.zeros([1]))
         y_ = tf.matmul(x, W) + b
+        yped_valid = tf.matmul(y_valid, W) + b
         regularization = reg_fun(W, lamb)
         lostfunction = self._loss(y_, y)
         cost = lostfunction + regularization
@@ -108,16 +126,20 @@ class tensorflow_models(object):
             sess.run(init)
             xx, yy = next(dataset)
             feed_dict = {x: xx, y: yy}
+            feed_valid = {x_valid: self.X_valid,
+                          y_valid: self.y_valid}
             last_cost = cost.eval(feed_dict)
             for _ in range(epochs):
                 xx, yy = next(dataset)
                 feed_dict = {x: xx, y: yy}
-                op, current_cost = sess.run([train_op, cost], feed_dict=feed_dict)
+                op, current_cost = sess.run([train_op, cost],
+                                            feed_dict=feed_dict)
 
                 if ((_ % 100 == 0) and debug):
                     print("loss = %f" % np.round(current_cost, 5))
-                    correct_prediction = tf.equal(tf.round(tf.sigmoid(y_)), self.y)
-                    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+                    correct_prediction = tf.equal(tf.round(tf.sigmoid(y_)), y)
+                    accuracy = tf.reduce_mean(tf.cast(correct_prediction,
+                                                      tf.float32))
                     print('prediction:', accuracy.eval(feed_dict))
                     if ((last_cost - current_cost) <= 1e-3) and (_ > 50):
                         break

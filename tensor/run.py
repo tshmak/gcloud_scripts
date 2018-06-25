@@ -1,5 +1,6 @@
 """Read plink files by predefined chuncks."""
 import pandas as pd
+import numpy as np
 import os
 from pytorch_regression import pytorch_linear
 from tensorflow_penal_regression import tensorflow_models
@@ -41,8 +42,8 @@ if __name__ == '__main__':
     download_path = 'tensor/data/'
     sim_path = 'data/phenotypes/simulated_chr10.txt'
     downloader = genetic_testdata(download_path)
-    # plink_stem = downloader.download_1kg_chr22()
-    plink_stem = downloader.download_ukb_chr10()
+    plink_stem = downloader.download_1kg_chr22()
+    # plink_stem = downloader.download_ukb_chr10()
     ld_blocks = downloader.download_ldblocks()
     pheno_file = downloader.download_file(sim_path)
     # Models
@@ -50,18 +51,22 @@ if __name__ == '__main__':
               'tensor': tensorflow_models,
               'sklearn': sklearn_models}
     # Phenotype processing
-    pheno_reader = DataProcessing(pheno_file)
-    ph = pheno_reader.get_pheno(1)
-    y = ph['pheno'].values
+    # pheno_reader = DataProcessing(pheno_file)
+    # ph = pheno_reader.get_pheno(1)
+    # y = ph['pheno'].values
+    y = np.random.random(1092)
     # Reading of genetic data
     genetic_process = Genetic_data_read(plink_stem, ld_blocks)
-    out = genetic_process.block_iter(10)
+    out = genetic_process.block_iter(22)
     # Trial run for a single LD block
     X = next(out)
     X = scale(X)
     lamb = 0.01
     # Setting up the model
-    model_comparision_file = os.path.join(download_path, 'model.comparisions')
-    pytorchmodel = pytorch_linear(X, y, model_comparision_file,
-                                  False, type='c', mini_batch_size=10000)
-    pytorchmodel.run(penal='l1')
+    model_comparision_file = os.path.join(download_path, 'model.comparisions3')
+    for i, m in models.items():
+        print(i)
+        pytorchmodel = m(X, y, model_comparision_file,
+                         False, type='c', mini_batch_size=100)
+        pytorchmodel.run(penal='l1')
+        pytorchmodel.run(penal='l2')

@@ -129,7 +129,7 @@ class pytorch_linear(object):
     """Penalized regresssion with L1/L2/L0 norm."""
 
     def __init__(self, X, y, model_log, overwrite=False,
-                 type='b', mini_batch_size=5000):
+                 type='b', mini_batch_size=5000, fraction_valid=0.1):
         """Penalized regression."""
         super(pytorch_linear, self).__init__()
         self.model_log = model_log
@@ -140,17 +140,29 @@ class pytorch_linear(object):
         self.output_dim = 1
         self.type = type
         self.mini_batch_size = mini_batch_size
+        self.fraction_valid = fraction_valid
         assert mini_batch_size <= self.n
         self.X = X[self._shuffle_ids, :]
         self.y = y[self._shuffle_ids].reshape(self.n, 1)
         print("init X shape", self.X.shape)
         if not os.path.isfile(model_log):
-            with open(model_log, 'w', encoding='utf-8') as f:
+            with open(model_log, 'wb') as f:
                 pickle.dump([], f)
         elif overwrite:
             with open(model_log, 'wb') as f:
                 pickle.dump([], f)
         assert os.path.isfile(self.model_log)
+        self._validation_sampling()
+
+    def _validation_sampling(self):
+        assert self.X is not None
+        assert self.y is not None
+        num_valid_samples = np.float(self.n*self.fraction_valid)
+        idx = np.random.randint(0, self.n, num_valid_samples)
+        self.X_valid = self.X[:, idx]
+        self.y_valid = self.y[:, idx]
+        self.X = np.delete(self.X, idx, axis=1)
+        self.y = np.delete(self.y, idx, axis=1)
 
     def _model_builder(self, penal, **kwargs):
         if penal == 'l1':
@@ -180,7 +192,7 @@ class pytorch_linear(object):
                                predict.data.numpy().flatten())**2
             accu = accu[0][1]
         else:
-            accu = np.mean(np.round(predict.data.numpy()) == self.y)
+            accu = np.mean(np.round(predict.data.numpy()) == self.y_valid)
         return accu
 
     def _iterator(self, x, y):
@@ -223,7 +235,7 @@ class pytorch_linear(object):
                 if np.allclose(save_loss[-50], loss.item(), 1e-4):
                     break
             save_loss.append(loss.item())
-        alldata = Variable(torch.from_numpy(self.X)).float()
+        alldata = Variable(torch.from_numpy(self.X_valid)).float()
         predict, penalty = model.forward(alldata)
         accu = self._accuracy(predict)
         print('Accuracy:', accu)
@@ -248,7 +260,10 @@ class pytorch_linear(object):
         output['time'] = str(datetime.datetime.now())
         output['name'] = model_name
         print(output)
-        feed = pickle.load(open(self.model_log, 'rb'))
+        if os.path.getsize(self.model_log) > 0:
+            feed = pickle.load(open(self.model_log, 'rb'))
+        else:
+            feed = []
         with open(self.model_log, 'wb') as f:
             feed.append(output)
             pickle.dump(feed, f)
